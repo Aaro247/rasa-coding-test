@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
+import "./EntityHighlighter.scss";
 
 const StyledZeroPosHighlightText = styled.div`
   color: transparent;
@@ -11,18 +12,26 @@ const StyledZeroPosHighlightText = styled.div`
   font-size: 14px;
   text-align: left;
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 2px;
+  left: 2px;
 `;
 
-const StyledInput = styled.textarea`
+const StyledInput = styled.div`
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
   font-size: 14px;
   background: none;
   border: 1px solid;
-  width: 100%;
+  height: 166px;
+  width: 756px;
   resize: none;
+  overflow: auto;
+  border: 2px solid black;
+  text-align: left;
+
+  ::selection {
+    background: yellow;
+  }
 `;
 
 const colors = [
@@ -50,6 +59,7 @@ const EntityHighlighter = ({
   const [selectionStart, setSelectionStart] = useState(0);
   const [selectionEnd, setSelectionEnd] = useState(0);
   const [text, setText] = useState("");
+  const [selectedText, setSelectedText] = useState("");
   const inputRef = useRef();
 
   useEffect(() => {
@@ -65,12 +75,49 @@ const EntityHighlighter = ({
 
   const selectionChangeHandler = (event) => {
     const target = event.target;
+    const currentRef = inputRef.current;
 
-    if (target === inputRef.current) {
-      setSelectionStart(inputRef.current.selectionStart);
-      setSelectionEnd(inputRef.current.selectionEnd);
+    if (target === currentRef) {
+      const sel = document.getSelection && document.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const val = sel.getRangeAt(0);
+        const selectedTextRect = val.getBoundingClientRect();
+
+        const floatingDiv =
+          document.getElementsByClassName("floating-div") &&
+          document.getElementsByClassName("floating-div")[0];
+
+        if (Math.floor(selectedTextRect.width) !== 0) {
+          floatingDiv.style.display = "block";
+          floatingDiv.style.top = selectedTextRect.top - 25 + "px";
+          floatingDiv.style.left = selectedTextRect.left + "px";
+
+          const testSpan = document.createElement("div");
+          testSpan.id = "test";
+          testSpan.style.position = "absolute";
+          testSpan.style.backgroundColor = "yellow";
+          testSpan.style.border = "2px dashed black";
+          testSpan.style.top = selectedTextRect.top + "px";
+          testSpan.style.left = selectedTextRect.left + "px";
+          testSpan.style.width = selectedTextRect.width + "px";
+          testSpan.style.height = "16px";
+          testSpan.style.opacity = "0.5";
+          document.body.appendChild(testSpan);
+        } else {
+          if (document.getElementById("test")) {
+            document.body.removeChild(document.getElementById("test"));
+          }
+          floatingDiv.style.display = "none";
+        }
+
+        setSelectionStart(sel.baseOffset);
+        setSelectionEnd(sel.extentOffset);
+      }
     }
   };
+
+  console.log(defaultEntities);
+  console.log(selectionEnd);
 
   const hashString = (str) => {
     let hash = 0;
@@ -114,7 +161,7 @@ const EntityHighlighter = ({
           return lastMatch;
         }
         return findClosestStart(index);
-      }
+      };
       const start = findClosestStart();
       if (start === -1) {
         return;
@@ -150,7 +197,7 @@ const EntityHighlighter = ({
   };
 
   const deleteEntity = (entity) => {
-    const entities = defaultEntities;
+    const entities = [...defaultEntities];
     const deleted = entities.findIndex(
       (e) =>
         e.start === entity.start &&
@@ -159,36 +206,44 @@ const EntityHighlighter = ({
     );
     entities.splice(deleted, 1);
     onChangeEntities(entities);
+    setText("");
   };
 
   const handleButtonClick = () => {
+    const entities = [...defaultEntities];
     onChangeEntities(
-      defaultEntities.concat({
+      entities.concat({
         start: selectionStart,
         end: selectionEnd,
         label: text,
       })
     );
-  };
 
-  console.log(selectionStart);
-  console.log(selectionEnd);
+    if (document.getElementById("test")) {
+      document.getElementById("test").style.display = "none";
+    }
+
+    document.getElementsByClassName("floating-div")[0].style.display = "none";
+  };
 
   return (
     <div>
       <div style={{ position: "relative" }}>
         <StyledInput
+          contentEditable
           ref={inputRef}
-          onChange={(event) => handleTextChange(event)}
-          value={defaultText}
-          rows={10}
-        />
+          // onChange={(event) => handleTextChange(event)}
+          // value={defaultText}
+          // rows={10}
+        >
+          {defaultText}
+        </StyledInput>
         {defaultEntities.map((entity, index) =>
           renderEntityHighlight(defaultText, entity, index)
         )}
       </div>
       <br />
-      <div>
+      <div className="floating-div">
         <input
           type="text"
           placeholder="Entity label"
@@ -198,9 +253,9 @@ const EntityHighlighter = ({
         />
         <button
           onClick={handleButtonClick}
-          disabled={selectionStart === selectionEnd}
+          disabled={(selectionStart === selectionEnd) || (text.length === 0)}
         >
-          Add entity for selection
+          +
         </button>
       </div>
       {selectionStart === selectionEnd &&

@@ -3,20 +3,6 @@ import styled from "styled-components";
 import Highlighter from "react-highlight-words";
 import "./EntityHighlighter.scss";
 
-const StyledZeroPosHighlightText = styled.div`
-  color: transparent;
-  pointer-events: none;
-  padding: 0px;
-  white-space: pre-wrap;
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-    monospace;
-  font-size: 14px;
-  text-align: left;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-`;
-
 const StyledInput = styled.div`
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
@@ -56,7 +42,7 @@ const EntityHighlighter = ({
   const [text, setText] = useState("");
   const [highlightedWords, setHighlightedWords] = useState([]);
   const [currentSelection, setCurrentSelection] = useState("");
-  const [clickedWord, setClickedWord] = useState("");
+  const [clickedWordLabel, setClickedWordLabel] = useState({});
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -92,8 +78,13 @@ const EntityHighlighter = ({
 
       Array.from(highlightedClasses).map((className) => {
         const text = className.innerHTML;
-        const color =
-          colors[hashString(entityObj[text]) % colors.length].bg + "4D";
+        let color = "";
+        if(highlightedWords.includes(text)) {
+          color =
+            colors[hashString(entityObj[text]) % colors.length].bg + "4D";
+        } else {
+          color = "yellow";
+        }
         className.style.backgroundColor = color;
       });
     }
@@ -129,15 +120,15 @@ const EntityHighlighter = ({
 
   const deleteEntity = () => {
     const entities = [...defaultEntities];
-    const deleted = entities.findIndex((e) => e.word === clickedWord);
+    const deleted = entities.findIndex((e) => e.word === clickedWordLabel.word);
     entities.splice(deleted, 1);
     onChangeEntities(entities);
 
     const updatedHighlightedWords = highlightedWords.filter(
-      (word) => word !== clickedWord
+      (word) => word !== clickedWordLabel.word
     );
     setHighlightedWords(updatedHighlightedWords);
-    setClickedWord("");
+    setClickedWordLabel({word: "", label: ""});
   };
 
   const handleButtonClick = () => {
@@ -154,20 +145,21 @@ const EntityHighlighter = ({
 
   const handleClick = (e) => {
     if (highlightedWords.includes(e.target.innerText)) {
-      setClickedWord(e.target.innerText);
+      const val = defaultEntities.filter(entity => e.target.innerText === entity.word)
+      setClickedWordLabel(val[0]); 
     } else {
-      setClickedWord("");
+      setClickedWordLabel({word: "", label: ""});
     }
   };
 
   return (
     <div>
       <div style={{ position: "relative" }}>
-        <StyledInput id="editable-div" ref={inputRef} contentEditable>
+        <StyledInput id="editable-div" ref={inputRef} contentEditable onBlur={(e) => onChangeText(e.target.innerText)}>
           <Highlighter
             id="highlighter"
             highlightClassName="hightlighted-word"
-            searchWords={highlightedWords}
+            searchWords={[...highlightedWords, currentSelection]}
             autoEscape
             caseSensitive
             textToHighlight={defaultText}
@@ -195,11 +187,11 @@ const EntityHighlighter = ({
           </button>
         </div>
       )}
-      {!currentSelection.length && clickedWord.length > 0 && (
+      {!currentSelection.length && clickedWordLabel.word && (
         <div style={{ marginTop: 10 }}>
           <span>
-            {clickedWord}
-            {/* ({entityObj[clickedWord]}) */}
+            {clickedWordLabel.word}
+            ({clickedWordLabel.label})
             <button
               style={{
                 border: "0 none",

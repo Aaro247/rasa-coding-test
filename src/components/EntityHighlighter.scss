@@ -1,14 +1,4 @@
-.floating-div {
-  display: none;
-  position: absolute;
-}
-
-button {
-  background-color: green;
-  cursor: pointer;
-}
-
-button:disabled {
-  background-color: lightgray;
-  cursor: not-allowed;
+::selection {
+  color: red;
+  background: yellow;
 }

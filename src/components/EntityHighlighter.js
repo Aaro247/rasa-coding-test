@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
+import Highlighter from "react-highlight-words";
 import "./EntityHighlighter.scss";
 
 const StyledZeroPosHighlightText = styled.div`
@@ -24,14 +25,10 @@ const StyledInput = styled.div`
   border: 1px solid;
   height: 166px;
   width: 756px;
-  resize: none;
+  resize: auto;
   overflow: auto;
   border: 2px solid black;
   text-align: left;
-
-  ::selection {
-    background: yellow;
-  }
 `;
 
 const colors = [
@@ -56,68 +53,67 @@ const EntityHighlighter = ({
   onChangeText,
   onChangeEntities,
 }) => {
-  const [selectionStart, setSelectionStart] = useState(0);
-  const [selectionEnd, setSelectionEnd] = useState(0);
   const [text, setText] = useState("");
-  const [selectedText, setSelectedText] = useState("");
-  const inputRef = useRef();
+  const [highlightedWords, setHighlightedWords] = useState([]);
+  const [currentSelection, setCurrentSelection] = useState("");
+  const [clickedWord, setClickedWord] = useState("");
+  const inputRef = useRef(null);
 
   useEffect(() => {
+    const result = [];
+    defaultEntities.map((entity) => result.push(entity.word));
+    setHighlightedWords(result);
+
     document.addEventListener("select", selectionChangeHandler, false);
     document.addEventListener("click", selectionChangeHandler, false);
     document.addEventListener("keydown", selectionChangeHandler, false);
+
     return () => {
       document.removeEventListener("select", selectionChangeHandler);
       document.removeEventListener("click", selectionChangeHandler);
       document.removeEventListener("keydown", selectionChangeHandler);
     };
-  }, []);
+  }, [defaultEntities]);
 
-  const selectionChangeHandler = (event) => {
-    const target = event.target;
-    const currentRef = inputRef.current;
+  useEffect(() => {
+    changeHighlighterColors();
+  });
 
-    if (target === currentRef) {
-      const sel = document.getSelection && document.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        const val = sel.getRangeAt(0);
-        const selectedTextRect = val.getBoundingClientRect();
+  const changeHighlighterColors = () => {
+    if (highlightedWords.length > 0) {
+      const highlightedClasses = document.getElementsByClassName(
+        "hightlighted-word"
+      );
 
-        const floatingDiv =
-          document.getElementsByClassName("floating-div") &&
-          document.getElementsByClassName("floating-div")[0];
+      let entityObj = {};
+      defaultEntities.map((entity) => {
+        entityObj[entity.word] = entity.label;
+      });
 
-        if (Math.floor(selectedTextRect.width) !== 0) {
-          floatingDiv.style.display = "block";
-          floatingDiv.style.top = selectedTextRect.top - 25 + "px";
-          floatingDiv.style.left = selectedTextRect.left + "px";
-
-          const testSpan = document.createElement("div");
-          testSpan.id = "test";
-          testSpan.style.position = "absolute";
-          testSpan.style.backgroundColor = "yellow";
-          testSpan.style.border = "2px dashed black";
-          testSpan.style.top = selectedTextRect.top + "px";
-          testSpan.style.left = selectedTextRect.left + "px";
-          testSpan.style.width = selectedTextRect.width + "px";
-          testSpan.style.height = "16px";
-          testSpan.style.opacity = "0.5";
-          document.body.appendChild(testSpan);
-        } else {
-          if (document.getElementById("test")) {
-            document.body.removeChild(document.getElementById("test"));
-          }
-          floatingDiv.style.display = "none";
-        }
-
-        setSelectionStart(sel.baseOffset);
-        setSelectionEnd(sel.extentOffset);
-      }
+      Array.from(highlightedClasses).map((className) => {
+        const text = className.innerHTML;
+        const color =
+          colors[hashString(entityObj[text]) % colors.length].bg + "4D";
+        className.style.backgroundColor = color;
+      });
     }
   };
 
-  console.log(defaultEntities);
-  console.log(selectionEnd);
+  const selectionChangeHandler = (event) => {
+    const target = event.target;
+
+    if (
+      target.id === "editable-div" ||
+      target.parentNode.id === "highlighter"
+    ) {
+      const selectedWord = window.getSelection().toString();
+      if (selectedWord.length > 0) {
+        setCurrentSelection(selectedWord);
+      } else {
+        setCurrentSelection("");
+      }
+    }
+  };
 
   const hashString = (str) => {
     let hash = 0;
@@ -127,159 +123,98 @@ const EntityHighlighter = ({
       hash = (hash << 5) - hash + char;
       hash &= hash; // Convert to 32bit integer
     }
+
     return hash > 0 ? hash : -hash;
   };
 
-  const handleTextChange = (event) => {
-    const text = event.target.value;
-    const entities = [];
-
-    // update the entity boudaries
-
-    defaultEntities.forEach((oldEntity) => {
-      const oldSelection = defaultText.substr(
-        oldEntity.start,
-        oldEntity.end - oldEntity.start
-      );
-
-      const findClosestStart = (lastMatch) => {
-        if (lastMatch == null) {
-          const index = text.indexOf(oldSelection);
-          if (index === -1) {
-            return index;
-          }
-          return findClosestStart(index);
-        }
-        const from = lastMatch + oldSelection.length;
-        const index = text.indexOf(oldSelection, from);
-        if (index === -1) {
-          return lastMatch;
-        }
-        const prevDiff = Math.abs(oldEntity.start - lastMatch);
-        const nextDiff = Math.abs(oldEntity.start - index);
-        if (prevDiff < nextDiff) {
-          return lastMatch;
-        }
-        return findClosestStart(index);
-      };
-      const start = findClosestStart();
-      if (start === -1) {
-        return;
-      }
-
-      entities.push({
-        ...oldEntity,
-        start,
-        end: start + oldSelection.length,
-      });
-    });
-
-    onChangeText(text);
-    onChangeEntities(entities);
-  };
-
-  const findEntities = (index) => {
-    return defaultEntities.filter((e) => e.start <= index && e.end > index);
-  };
-
-  const renderEntityHighlight = (text, entity, key) => {
-    const start = text.substr(0, entity.start);
-    const value = text.substr(entity.start, entity.end - entity.start);
-    const end = text.substr(entity.end);
-    const color = colors[hashString(entity.label) % colors.length].bg;
-    return (
-      <StyledZeroPosHighlightText key={key}>
-        <span>{start}</span>
-        <span style={{ opacity: 0.3, backgroundColor: color }}>{value}</span>
-        <span>{end}</span>
-      </StyledZeroPosHighlightText>
-    );
-  };
-
-  const deleteEntity = (entity) => {
+  const deleteEntity = () => {
     const entities = [...defaultEntities];
-    const deleted = entities.findIndex(
-      (e) =>
-        e.start === entity.start &&
-        e.end === entity.end &&
-        e.label === entity.label
-    );
+    const deleted = entities.findIndex((e) => e.word === clickedWord);
     entities.splice(deleted, 1);
     onChangeEntities(entities);
-    setText("");
+
+    const updatedHighlightedWords = highlightedWords.filter(
+      (word) => word !== clickedWord
+    );
+    setHighlightedWords(updatedHighlightedWords);
+    setClickedWord("");
   };
 
   const handleButtonClick = () => {
     const entities = [...defaultEntities];
     onChangeEntities(
       entities.concat({
-        start: selectionStart,
-        end: selectionEnd,
+        word: currentSelection,
         label: text,
       })
     );
+    setCurrentSelection("");
+    onChangeText(inputRef.current.innerText);
+  };
 
-    if (document.getElementById("test")) {
-      document.getElementById("test").style.display = "none";
+  const handleClick = (e) => {
+    if (highlightedWords.includes(e.target.innerText)) {
+      setClickedWord(e.target.innerText);
+    } else {
+      setClickedWord("");
     }
-
-    document.getElementsByClassName("floating-div")[0].style.display = "none";
   };
 
   return (
     <div>
       <div style={{ position: "relative" }}>
-        <StyledInput
-          contentEditable
-          ref={inputRef}
-          // onChange={(event) => handleTextChange(event)}
-          // value={defaultText}
-          // rows={10}
-        >
-          {defaultText}
+        <StyledInput id="editable-div" ref={inputRef} contentEditable>
+          <Highlighter
+            id="highlighter"
+            highlightClassName="hightlighted-word"
+            searchWords={highlightedWords}
+            autoEscape
+            caseSensitive
+            textToHighlight={defaultText}
+            onClick={handleClick}
+          />
         </StyledInput>
-        {defaultEntities.map((entity, index) =>
-          renderEntityHighlight(defaultText, entity, index)
-        )}
       </div>
       <br />
-      <div className="floating-div">
-        <input
-          type="text"
-          placeholder="Entity label"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          disabled={selectionStart === selectionEnd}
-        />
-        <button
-          onClick={handleButtonClick}
-          disabled={(selectionStart === selectionEnd) || (text.length === 0)}
-        >
-          +
-        </button>
-      </div>
-      {selectionStart === selectionEnd &&
-        findEntities(selectionStart).length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            {findEntities(selectionStart).map((e, i) => (
-              <span key={i}>
-                {defaultText.substring(e.start, e.end)} ({e.label})
-                <button
-                  style={{
-                    border: "0 none",
-                    cursor: "pointer",
-                    backgroundColor: "transparent",
-                  }}
-                  onClick={() => deleteEntity(e)}
-                >
-                  <span role="img" aria-label="Delete">
-                    🗑️
-                  </span>
-                </button>
+      {currentSelection && (
+        <div>
+          <div>Selected Word: {currentSelection}</div>
+          <br />
+          <input
+            type="text"
+            placeholder="Entity label"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            disabled={!currentSelection.length}
+          />
+          <button
+            onClick={handleButtonClick}
+            disabled={!currentSelection.length || text.length === 0}
+          >
+            Add Entity Label
+          </button>
+        </div>
+      )}
+      {!currentSelection.length && clickedWord.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <span>
+            {clickedWord}
+            {/* ({entityObj[clickedWord]}) */}
+            <button
+              style={{
+                border: "0 none",
+                cursor: "pointer",
+                backgroundColor: "transparent",
+              }}
+              onClick={deleteEntity}
+            >
+              <span role="img" aria-label="Delete">
+                🗑️
               </span>
-            ))}
-          </div>
-        )}
+            </button>
+          </span>
+        </div>
+      )}
     </div>
   );
 };

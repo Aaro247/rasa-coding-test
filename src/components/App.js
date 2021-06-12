@@ -22,11 +22,11 @@ const App = () => {
   const defautText =
     "Venture first mover advantage learning curve market ecosystem funding stealth disruptive social proof scrum project growth hacking niche market user experience graphical user interface.";
   const defaultEntities = [
-    { start: 160, end: 184, label: "very important" },
-    { start: 144, end: 159, label: "very important" },
-    { start: 62, end: 69, label: "important" },
-    { start: 116, end: 130, label: "nonsense" },
-    { start: 8, end: 29, label: "nonsense" },
+    { word: "first mover advantage", label: "very important" },
+    { word: "funding", label: "very important" },
+    { word: "growth hacking", label: "important" },
+    { word: "user experience", label: "nonsense" },
+    { word: "graphical user interface", label: "nonsense" },
   ];
 
   const [text, setText] = useState(defautText);

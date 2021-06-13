@@ -1,37 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
-import styled from "styled-components";
 import Highlighter from "react-highlight-words";
+
+import {
+  StyledInput,
+  StyledDeleteEntityDiv,
+  StyledDeleteButton,
+} from "./StyledComponents";
+import { colors, hashString } from "../utils.js";
 import "./EntityHighlighter.scss";
-
-const StyledInput = styled.div`
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-    monospace;
-  font-size: 14px;
-  background: none;
-  border: 1px solid;
-  height: 166px;
-  width: 756px;
-  resize: auto;
-  overflow: auto;
-  border: 2px solid black;
-  text-align: left;
-`;
-
-const colors = [
-  { name: "blue", bg: "#0074d9" },
-  { name: "navy", bg: "#001f3f" },
-  { name: "lime", bg: "#01ff70" },
-  { name: "teal", bg: "#39cccc" },
-  { name: "olive", bg: "#3d9970" },
-  { name: "fuchsia", bg: "#f012be" },
-  { name: "red", bg: "#ff4136" },
-  { name: "green", bg: "#2ecc40" },
-  { name: "orange", bg: "#ff851b" },
-  { name: "maroon", bg: "#85144b" },
-  { name: "purple", bg: "#b10dc9" },
-  { name: "yellow", bg: "#ffdc00" },
-  { name: "aqua", bg: "#7fdbff" },
-];
 
 const EntityHighlighter = ({
   defaultText,
@@ -45,6 +21,11 @@ const EntityHighlighter = ({
   const [clickedWordLabel, setClickedWordLabel] = useState({});
   const inputRef = useRef(null);
 
+  /* 
+    - will be executed first time and then whenever "defaultEntities" change
+    - adds "eventlisteners" when component mounted
+    - will remove "eventlisteners" when component unmounted 
+  */
   useEffect(() => {
     const result = [];
     defaultEntities.map((entity) => result.push(entity.word));
@@ -61,10 +42,12 @@ const EntityHighlighter = ({
     };
   }, [defaultEntities]);
 
+  // will be called everytime
   useEffect(() => {
     changeHighlighterColors();
   });
 
+  // function called to customize highlighter color for entities
   const changeHighlighterColors = () => {
     if (highlightedWords.length > 0) {
       const highlightedClasses = document.getElementsByClassName(
@@ -72,16 +55,15 @@ const EntityHighlighter = ({
       );
 
       let entityObj = {};
-      defaultEntities.map((entity) => {
+      defaultEntities.forEach((entity) => {
         entityObj[entity.word] = entity.label;
       });
 
-      Array.from(highlightedClasses).map((className) => {
+      Array.from(highlightedClasses).forEach((className) => {
         const text = className.innerHTML;
         let color = "";
-        if(highlightedWords.includes(text)) {
-          color =
-            colors[hashString(entityObj[text]) % colors.length].bg + "4D";
+        if (highlightedWords.includes(text)) {
+          color = colors[hashString(entityObj[text]) % colors.length].bg + "4D";
         } else {
           color = "yellow";
         }
@@ -90,6 +72,7 @@ const EntityHighlighter = ({
     }
   };
 
+  // callback for "click", "select", "keydown" events for document (text area)
   const selectionChangeHandler = (event) => {
     const target = event.target;
 
@@ -104,20 +87,11 @@ const EntityHighlighter = ({
         setCurrentSelection("");
       }
     }
+
+    // onChangeText(inputRef.current.innerText);
   };
 
-  const hashString = (str) => {
-    let hash = 0;
-    if (str.length === 0) return hash;
-    for (let i = 0; i < str.length; i += 1) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash &= hash; // Convert to 32bit integer
-    }
-
-    return hash > 0 ? hash : -hash;
-  };
-
+  // function to delete entity for existing entities
   const deleteEntity = () => {
     const entities = [...defaultEntities];
     const deleted = entities.findIndex((e) => e.word === clickedWordLabel.word);
@@ -128,10 +102,11 @@ const EntityHighlighter = ({
       (word) => word !== clickedWordLabel.word
     );
     setHighlightedWords(updatedHighlightedWords);
-    setClickedWordLabel({word: "", label: ""});
+    setClickedWordLabel({ word: "", label: "" });
   };
 
-  const handleButtonClick = () => {
+  // function to add new entities with labels and save text area changes on focus lost/blur
+  const handleAddEntity = () => {
     const entities = [...defaultEntities];
     onChangeEntities(
       entities.concat({
@@ -143,19 +118,32 @@ const EntityHighlighter = ({
     onChangeText(inputRef.current.innerText);
   };
 
+  // function called when highlighter text area clicked to show entity-label pair for deletion
   const handleClick = (e) => {
     if (highlightedWords.includes(e.target.innerText)) {
-      const val = defaultEntities.filter(entity => e.target.innerText === entity.word)
-      setClickedWordLabel(val[0]); 
+      const val = defaultEntities.filter(
+        (entity) => e.target.innerText === entity.word
+      );
+      setClickedWordLabel(val[0]);
     } else {
-      setClickedWordLabel({word: "", label: ""});
+      setClickedWordLabel({ word: "", label: "" });
     }
   };
 
+  const handleBlur = (e) => {
+    onChangeText(e.target.innerText);
+  }
+
   return (
     <div>
-      <div style={{ position: "relative" }}>
-        <StyledInput id="editable-div" ref={inputRef} contentEditable onBlur={(e) => onChangeText(e.target.innerText)}>
+      <div>
+        <StyledInput
+          id="editable-div"
+          ref={inputRef}
+          contentEditable
+          suppressContentEditableWarning={true}
+          onBlur={handleBlur}
+        >
           <Highlighter
             id="highlighter"
             highlightClassName="hightlighted-word"
@@ -180,7 +168,7 @@ const EntityHighlighter = ({
             disabled={!currentSelection.length}
           />
           <button
-            onClick={handleButtonClick}
+            onClick={handleAddEntity}
             disabled={!currentSelection.length || text.length === 0}
           >
             Add Entity Label
@@ -188,24 +176,16 @@ const EntityHighlighter = ({
         </div>
       )}
       {!currentSelection.length && clickedWordLabel.word && (
-        <div style={{ marginTop: 10 }}>
+        <StyledDeleteEntityDiv>
           <span>
-            {clickedWordLabel.word}
-            ({clickedWordLabel.label})
-            <button
-              style={{
-                border: "0 none",
-                cursor: "pointer",
-                backgroundColor: "transparent",
-              }}
-              onClick={deleteEntity}
-            >
+            {clickedWordLabel.word}({clickedWordLabel.label})
+            <StyledDeleteButton onClick={deleteEntity}>
               <span role="img" aria-label="Delete">
                 🗑️
               </span>
-            </button>
+            </StyledDeleteButton>
           </span>
-        </div>
+        </StyledDeleteEntityDiv>
       )}
     </div>
   );

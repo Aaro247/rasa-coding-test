@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 
-import logo from "./rasa.svg";
+import logo from "../assets/rasa.svg";
 import EntityHighlighter from "./EntityHighlighter";
 
 const StyledApp = styled.div`

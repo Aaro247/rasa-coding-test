@@ -28,7 +28,8 @@ const EntityHighlighter = ({
   */
   useEffect(() => {
     const result = [];
-    defaultEntities.map((entity) => result.push(entity.word));
+    defaultEntities &&
+      defaultEntities.map((entity) => result.push(entity.word));
     setHighlightedWords(result);
 
     document.addEventListener("select", selectionChangeHandler, false);
@@ -132,27 +133,31 @@ const EntityHighlighter = ({
 
   const handleBlur = (e) => {
     onChangeText(e.target.innerText);
-  }
+  };
 
   return (
     <div>
+      <span>Please click outside text area to save text changes</span>
       <div>
         <StyledInput
-          id="editable-div"
+          data-testid="input"
           ref={inputRef}
           contentEditable
           suppressContentEditableWarning={true}
           onBlur={handleBlur}
         >
-          <Highlighter
-            id="highlighter"
-            highlightClassName="hightlighted-word"
-            searchWords={[...highlightedWords, currentSelection]}
-            autoEscape
-            caseSensitive
-            textToHighlight={defaultText}
-            onClick={handleClick}
-          />
+          {defaultText && (
+            <Highlighter
+              id="highlighter"
+              data-testid="highlighter-test"
+              highlightClassName="hightlighted-word"
+              searchWords={[...highlightedWords, currentSelection]}
+              autoEscape
+              caseSensitive
+              textToHighlight={defaultText}
+              onClick={handleClick}
+            />
+          )}
         </StyledInput>
       </div>
       <br />
@@ -162,6 +167,7 @@ const EntityHighlighter = ({
           <br />
           <input
             type="text"
+            data-testid="input-field"
             placeholder="Entity label"
             value={text}
             onChange={(event) => setText(event.target.value)}

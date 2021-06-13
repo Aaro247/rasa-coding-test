@@ -21,3 +21,4 @@ The instructions for completing the task can be found in the site that will laun
 3) "react-highlight-word" package installed from npm for highlighting entities.
 4) "node-sass" package installed for SCSS.
 5) Updated "react" and "react-dom" packages to the latest 17.0.2 to support JSX file extension.
+6) React Testing Library used to test rendering of components.
